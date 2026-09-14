@@ -160,13 +160,13 @@ export function computeTaskDates(tasks: Task[], j0Input: string | Date | null | 
     }
   }
 
-  const timelineStart = addDays(minStart, -5);
-  let timelineEnd = addDays(maxEnd, 35);
+  const timelineStart = addDays(minStart, -2);
+  let timelineEnd = addDays(maxEnd, 4);
   let totalDays = diffDays(timelineStart, timelineEnd);
 
-  if (isNaN(totalDays) || totalDays < 30) {
-    totalDays = 30;
-    timelineEnd = addDays(timelineStart, 30);
+  if (isNaN(totalDays) || totalDays < 5) {
+    totalDays = 5;
+    timelineEnd = addDays(timelineStart, 5);
   }
 
   return {

@@ -45,7 +45,7 @@ export default function GanttChart({
 
   const { quarters, months } = generateTimelineHeaders(timelineParams);
   const safeDayWidth = typeof dayWidth === 'number' && !isNaN(dayWidth) && dayWidth > 0 ? dayWidth : 30;
-  const totalWidth = Math.max(Math.ceil((timelineParams.totalDays || 30) * safeDayWidth), 50);
+  const totalWidth = Math.max(Math.ceil((timelineParams.totalDays || 30) * safeDayWidth) + 160, 50);
 
   // Handle Drag / Resize End
   const handleMouseUp = useCallback(() => {

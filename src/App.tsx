@@ -275,9 +275,6 @@ export default function App() {
   const handleUpdateProjectJ0 = (j0: string) => {
     if (!currentProject) return;
     persistProject({ ...currentProject, j0 });
-    const { params: newParams } = computeTaskDates(currentProject.tasks || [], j0);
-    handleAutoScale(newParams.totalDays);
-    setTimeout(() => handleAutoScale(newParams.totalDays), 50);
   };
 
   const handleCreateProject = async (name: string, startDate: string) => {
@@ -487,11 +484,6 @@ export default function App() {
     }
 
     persistProject({ ...currentProject, tasks: updatedTasks });
-
-    // Automatically re-apply autozoom after the shift
-    const { params: newParams } = computeTaskDates(updatedTasks, currentProject.j0);
-    setTimeout(() => handleAutoScale(newParams.totalDays), 50);
-    setTimeout(() => handleAutoScale(newParams.totalDays), 180);
   };
 
   // Move task directly in calendar ("à la main dans le calendrier")
@@ -516,9 +508,6 @@ export default function App() {
     });
 
     persistProject({ ...currentProject, tasks: updatedTasks });
-    const { params: newParams } = computeTaskDates(updatedTasks, currentProject.j0);
-    handleAutoScale(newParams.totalDays);
-    setTimeout(() => handleAutoScale(newParams.totalDays), 50);
   };
 
   const handleResizeTaskInCalendar = (taskId: string, newDuration: number, deltaDuration: number) => {
@@ -536,9 +525,6 @@ export default function App() {
     });
 
     persistProject({ ...currentProject, tasks: updatedTasks });
-    const { params: newParams } = computeTaskDates(updatedTasks, currentProject.j0);
-    handleAutoScale(newParams.totalDays);
-    setTimeout(() => handleAutoScale(newParams.totalDays), 50);
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -548,9 +534,6 @@ export default function App() {
       .filter((t) => t.id !== taskId)
       .map((t) => (t.dependsOn === taskId ? { ...t, dependsOn: null } : t));
     persistProject({ ...currentProject, tasks: updatedTasks });
-    const { params: newParams } = computeTaskDates(updatedTasks, currentProject.j0);
-    handleAutoScale(newParams.totalDays);
-    setTimeout(() => handleAutoScale(newParams.totalDays), 50);
   };
 
   // Reset tasks of current project to default template
@@ -584,71 +567,38 @@ export default function App() {
     });
   };
 
-  const handleAutoScale = useCallback(
-    (overrideTotalDays?: unknown) => {
-      const days =
-        typeof overrideTotalDays === 'number' && !isNaN(overrideTotalDays) && overrideTotalDays > 0
-          ? overrideTotalDays
-          : Number(timelineParams.totalDays) || 0;
-      if (!days || days <= 0) return;
+  const handleAutoScale = useCallback(() => {
+    if (!computedTasks || computedTasks.length === 0) return;
 
-      const container =
-        ganttChartScrollRef.current || document.getElementById('gantt-chart-wrapper');
-      const containerWidth =
-        container?.clientWidth ||
-        (window.innerWidth - (isSidebarOpen ? 256 : 0) - taskTableWidth - 40);
-      const availableWidth = Math.max(containerWidth - 60, 100);
+    const container =
+      ganttChartScrollRef.current || document.getElementById('gantt-chart-wrapper');
+    const containerWidth =
+      container?.clientWidth ||
+      (window.innerWidth - (isSidebarOpen ? 256 : 0) - taskTableWidth - 40);
+    const availableWidth = Math.max(containerWidth - 40, 200);
 
-      // Calculate exact dayWidth to fit all days into available container width
-      const rawWidth = availableWidth / days;
-      const targetWidth = Math.max(0.5, Math.min(Math.floor(rawWidth * 1000) / 1000, 120));
-      setDayWidth(targetWidth);
+    // Calcul de l'envergure réelle des tâches en jours
+    const totalDays = Math.max(1, timelineParams.totalDays);
 
-      // Reset scroll position to the beginning
-      if (ganttChartScrollRef.current) {
-        ganttChartScrollRef.current.scrollLeft = 0;
-      }
-      requestAnimationFrame(() => {
-        if (ganttChartScrollRef.current) {
-          ganttChartScrollRef.current.scrollLeft = 0;
-        }
-      });
-    },
-    [timelineParams.totalDays, isSidebarOpen, taskTableWidth]
-  );
+    // Réserve 160px de marge visuelle pour le nom de la dernière tâche
+    const widthForTimeline = Math.max(availableWidth - 160, 100);
+    const targetDayWidth = Math.max(0.5, Math.min(widthForTimeline / totalDays, 80));
 
-  // Auto-scale on page load, project selection, or timeline start/duration shift
+    setDayWidth(Number(targetDayWidth.toFixed(2)));
+    if (ganttChartScrollRef.current) {
+      ganttChartScrollRef.current.scrollLeft = 0;
+    }
+  }, [computedTasks, timelineParams.totalDays, isSidebarOpen, taskTableWidth]);
+
+  // Auto-scale UNIQUEMENT à l'ouverture ou sélection d'un projet
   useEffect(() => {
-    if (timelineParams.totalDays > 0) {
-      handleAutoScale(timelineParams.totalDays);
+    if (currentProjectId) {
       const timer = setTimeout(() => {
-        handleAutoScale(timelineParams.totalDays);
-      }, 60);
+        handleAutoScale();
+      }, 50);
       return () => clearTimeout(timer);
     }
-  }, [currentProjectId, handleAutoScale, timelineParams.totalDays, timelineParams.start]);
-
-  // Re-scale on container size change via ResizeObserver and window resize
-  useEffect(() => {
-    const handleResize = () => {
-      handleAutoScale();
-    };
-    window.addEventListener('resize', handleResize);
-
-    const el = document.getElementById('gantt-chart-wrapper');
-    let observer: ResizeObserver | null = null;
-    if (el) {
-      observer = new ResizeObserver(() => {
-        handleAutoScale();
-      });
-      observer.observe(el);
-    }
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (observer) observer.disconnect();
-    };
-  }, [handleAutoScale]);
+  }, [currentProjectId]);
 
   // Panel Resizer logic
   const handleStartResizePanel = (e: MouseEvent) => {
@@ -716,7 +666,7 @@ export default function App() {
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
         onZoomIn={handleZoomIn}
         onZoomOut={handleZoomOut}
-        onAutoScale={() => handleAutoScale(timelineParams.totalDays)}
+        onAutoScale={handleAutoScale}
         user={user}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         syncStatus={syncStatus}
