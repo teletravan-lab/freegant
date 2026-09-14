@@ -1,0 +1,6 @@
+{
+  "name": "Free Gantt",
+  "description": "Application privée de création et gestion de diagrammes de Gantt avec synchronisation automatique dans Firestore.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
